@@ -1,0 +1,128 @@
+---
+title: "Data Wrangling Excercise 1"
+author: "Afif"
+output: github_document
+
+---
+
+##Introduction and Preparation
+Purpose of this exercise is to work with a toy data set showing product purchases from an electronics store.While the data set is small and simple, it still illustrates many of the challenges you have to address in real-world data wrangling.
+
+First step of solving this excercise is to load the necessary libraries, and the dataset.
+```{r}
+library(dplyr)
+library(stringr)
+refine <- tbl_df(read.csv("refine.csv"))
+```
+***
+
+
+##Clean up brand names
+Next is to clean up the 'company' column so all of the misspellings of the brand names are standardized.
+
+Unique brand names currently registered in the data frame are as follows:
+```{r}
+refine %>%
+  select(company) %>%
+  distinct()
+```
+
+From the data above, we know that there should be only four correct company names : phillips, akzo, van houten, and unilever.
+To correct these mispelling names, the following coding is used.  
+```{r warning=FALSE}
+correct.company <- data_frame(initial=c('ph','fi','ak','va','un'),correct_name= c('phillips','phillips','akzo','van houten','unilever'))
+
+buffer <- refine %>%
+            mutate(initial=tolower(substr(company,1,2)))
+buffer1<-left_join(correct.company, buffer)
+buffer1$company<- buffer1$correct_name
+refine <- buffer1 %>% select(-correct_name, -initial)
+```
+
+As the result of above data wrangling process we get these following unique company names in the dataset:
+```{r}
+refine %>%
+  distinct(company)
+```
+
+Which in this case, we can conclude that company names have been successfully standarized.
+
+***
+
+##Separate Product code and number
+
+Next is to separate the product code and number from Product.code...number attribute into two separates variables.
+
+```{r}
+refine <- refine %>% mutate(product_code=sub("-.*","",Product.code...number),product_number=sub(".*-","",Product.code...number))%>% 
+          select(-Product.code...number)
+refine%>%
+  select(company, product_number,product_code)%>%
+  sample_n(10)
+```
+
+***
+
+##Add Product Categories
+In order to make data more readable, product codes will be changed to the following product categories:
+```{r}
+product.categories <- data_frame(code=c("p","v","x","q"),category=c("Smartphone","TV","Laptop","Tablet"))
+product.categories
+```
+
+```{r}
+buffer4 <- data_frame(category=refine$product_code)
+buffer4[]<-product.categories$category[match(refine$product_code, product.categories$code)]
+refine$category <- buffer4$category
+refine%>%
+  select(company,product_code,category)%>%
+  sample_n(10)
+```
+
+****
+
+##Add Full Address for Geocoding
+To view the customer information on a map, the addresses need to be in a form that can be easily geocoded. Create a new column full_address that concatenates the three address fields (address, city, country), separated by commas.
+
+
+```{r}
+refine%>%
+  mutate(full_address=paste(address,city,country,sep=","))%>%
+  select(company,address,city,country,full_address)%>%
+  sample_n(10)
+```
+
+***
+
+##Create dummy variables for company and product category
+Next is to create binary variables for each of product and company for further analysis
+
+
+```{r}
+refine<- refine%>% 
+         mutate(company_phillips=match(company,"phillips"))%>%
+         mutate(company_akzo=match(company,"akzo"))%>%
+         mutate(company_unilever=match(company,"unilever"))%>%
+         mutate(company_vanhouten=match(company,"van houten"))%>%
+         mutate(product_smartphone=match(category,"Smartphone"))%>%
+         mutate(product_tv=match(category,"TV"))%>%
+         mutate(product_laptop=match(category,"Laptop"))%>%
+         mutate(product_tablet=match(category,"Tablet"))
+ 
+refine[is.na(refine)]<-0
+
+```
+
+Result for companies are as follows:
+```{r}
+refine%>%
+  select(company,company_phillips,company_akzo,company_unilever,company_vanhouten)%>%
+  sample_n(10)
+```
+
+Result for products are as follows:
+```{r}
+refine%>%
+  select(category,product_laptop,product_tv,product_smartphone,product_tablet)%>%
+  sample_n(10)
+```
